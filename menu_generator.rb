@@ -8,16 +8,16 @@ module Jekyll
             self.data['menu'] ||= {}
         end
         
-        def menu_parent
-            menu['parent']
+        def menu_parent(amenu)
+            menu[amenu]['parent']
         end
         
-        def menu_name
-            menu['name'] ||= self.data['title']
+        def menu_name(amenu)
+            menu[amenu]['name'] ||= self.data['title']
         end
         
-        def subpages
-            menu['subpages'] ||= []
+        def subpages(amenu)
+            menu[amenu]['subpages'] ||= []
         end
     end
 
@@ -39,10 +39,18 @@ module Jekyll
             site.config['menu_generator']['css']['current'] ||= 'current'
             site.config['menu_generator']['css']['current_parent'] ||= 'current-parent'
 
-            @parent_match_hash      = site.config['menu_generator']['parent_match_hash']
-            @menu_root              = site.config['menu_generator']['menu_root']
-            @delete_content_hash    = site.config['menu_generator']['delete_content_hash']
+            @parent_match_hash           = site.config['menu_generator']['parent_match_hash']
+            @menu_root                   = site.config['menu_generator']['menu_root']
+            @delete_content_hash         = site.config['menu_generator']['delete_content_hash']
             @hash_name_in_site_config    = site.config['menu_generator']['hash_name_in_site_config']
+        end
+
+        def lookup(amenu)
+            @lookup[amenu] ||= { @menu_root => init_menu(amenu) }
+        end
+
+        def init_menu(amenu)
+            @menues[amenu] ||= []
         end
 
         def generate(site)
@@ -50,15 +58,18 @@ module Jekyll
 
             setup_config(site)
 
-            @main_menu = []
-            @lookup = { @menu_root => @main_menu }
+            @menues = {}
+
+            @lookup = { }
 
             build_tree
+
             sort_pages
             generate_suburls
 
-            site.config[@hash_name_in_site_config] = @main_menu
-            site.menu = @main_menu
+            site.config[@hash_name_in_site_config] = @menues
+
+            site.menu = @menues
         end
         
         def build_tree
@@ -67,20 +78,43 @@ module Jekyll
                 prev_size = @pages.size
                 
                 @pages.reject! do |page|
-                    parent = @lookup[page.menu_parent]
-                    unless parent.nil?
-                        # Initilize the name
-                        page.menu_name
-                        @lookup[page[@parent_match_hash]] = page.subpages
-                        liq_hash = page.to_liquid
+                    page.menu.each do |amenu, menu_data|
 
-                        if @delete_content_hash
-                            liq_hash.delete('content')
+                        puts "#{amenu} " + page['title'] 
+                        puts page.menu_parent(amenu)
+
+                        pp lookup(amenu)
+
+                        parent = lookup(amenu)[page.menu_parent(amenu)]
+
+                        puts "A parent"
+                        pp parent
+
+                        puts "subpages"
+
+                        pp page.subpages(amenu)
+
+                        unless parent.nil?
+                            # Initilize the name
+                            page.menu_name(amenu)
+                            @lookup[amenu][page[@parent_match_hash]] = page.subpages(amenu)
+
+                            pp @lookup
+
+                            liq_hash = page.to_liquid
+
+                            old_menu = liq_hash['menu']
+                            liq_hash.delete('menu')
+                            liq_hash['menu'] = old_menu[amenu]
+
+                            if @delete_content_hash
+                                liq_hash.delete('content')
+                            end
+                            parent << liq_hash
+                            true
+                        else
+                            false
                         end
-                        parent << liq_hash
-                        true
-                    else
-                        false
                     end
                 end
                 
@@ -91,9 +125,11 @@ module Jekyll
         def sort_pages
             # lookup contains every page's subpage array,
             # so we only need to sort every value in lookup
-            @lookup.each do |key, val|
-                val.sort! do |a, b|
-                    compare_pages(a, b)  
+            @lookup.each do |amenu, menu_lookup|
+                menu_lookup.each do |key, val|
+                    val.sort! do |a, b|
+                        compare_pages(a, b)  
+                    end
                 end
             end
         end
@@ -118,8 +154,11 @@ module Jekyll
             # generate the suburl lists.
             # #set_suburls recurses, so we only call this
             # on the pages in the main menu
-            @main_menu.each do |page|
-                set_suburls(page)
+
+            @menues.each do |amenu, page_list|
+                page_list.each do |page|
+                    set_suburls(page)
+                end
             end
         end
         
@@ -145,7 +184,7 @@ module Jekyll
 
   class MenuGeneratorTag < Liquid::Tag
 
-    Syntax = /^\s*(max_depth:[0-9]+)?\s*$/ 
+    Syntax = /^\s*name:[a-zA-Z_-]+\s*(max_depth:[0-9]+)?\s*$/ 
 
     def initialize(tag_name, markup, tokens)
       @attributes = {}
@@ -160,6 +199,7 @@ module Jekyll
         raise SyntaxError.new("Syntax Error in 'MenuGenerator' - Valid syntax: menu [max_depth:y]")
       end
 
+      @menu_name = @attributes['name']
       @max_depth = @attributes['max_depth'].nil? ? -1 : @attributes['max_depth'].to_i()
       
       super
@@ -172,7 +212,7 @@ module Jekyll
       @css_class_current = site.config['menu_generator']['css']['current']
       @css_class_current_parent = site.config['menu_generator']['css']['current_parent']
 
-      render_menu(site.menu, site, page)
+      render_menu(site.menu[@menu_name], site, page)
     end
 
     def render_menu(menu, site, page, level=0)
