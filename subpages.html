@@ -1,0 +1,30 @@
+{% if include.more_text == null %}
+    {% assign more_text = "mehr erfahren" %}
+{% else %}
+    {% assign more_text = include.more_text %}
+{% endif %}
+
+{% for menu_page in include.menu %}
+    {% if menu_page.menu.suburls contains page.url %}
+        {% include subpages.html current_url=page.url %}
+    {% endif %}
+
+    {% if page.url == menu_page.url %}
+        {% assign subpage_count = menu_page.menu.subpages | size %}
+        {% unless 0 == subpage_count  %}
+<ul class="subpages">
+            {% for sub_page in menu_page.menu.subpages %}
+                <li>
+                    <h6><a href="{{ sub_page.url }}">{{ sub_page.title }}</a></h6>
+                    <p>
+                       <a href="{{ sub_page.url }}">{{ sub_page.description }}</a>
+                    </p>
+                    <div class="more"><a href="{{ sub_page.url }}">{{ more_text }}</a></div>
+                </li>
+            {% endfor %}            
+</ul>
+        {% endunless %}
+    {% endif %}
+{% endfor %}
+
+
