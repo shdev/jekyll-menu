@@ -190,6 +190,10 @@ module Jekyll
         title = menu_page['menu']['name']
         url = menu_page['url']
 
+        if not url.end_with? '/'
+            url = url + '.html'
+        end
+
         output += "<li#{css_class}><a href=\"#{url}\">#{title}</a>"
 
         unless menu_page['menu']['subpages'].count == 0 or level - @max_depth == 0
