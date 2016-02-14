@@ -34,6 +34,7 @@ module Jekyll
             site.config['menu_generator']['menu_root'] ||= '__root'
             site.config['menu_generator']['delete_content_hash'] ||= false
             site.config['menu_generator']['hash_name_in_site_config'] ||= "menu"
+            site.config['menu_generator']['multi_menu'] ||= false
 
             site.config['menu_generator']['css'] ||= {}
             site.config['menu_generator']['css']['current'] ||= 'current'
@@ -41,10 +42,11 @@ module Jekyll
             site.config['menu_generator']['css']['li'] ||= ''
             site.config['menu_generator']['css']['ul'] ||= ''
 
-            @parent_match_hash      = site.config['menu_generator']['parent_match_hash']
-            @menu_root              = site.config['menu_generator']['menu_root']
-            @delete_content_hash    = site.config['menu_generator']['delete_content_hash']
-            @hash_name_in_site_config    = site.config['menu_generator']['hash_name_in_site_config']
+            @parent_match_hash          = site.config['menu_generator']['parent_match_hash']
+            @menu_root                  = site.config['menu_generator']['menu_root']
+            @multi_menu                 = site.config['menu_generator']['multi_menu']
+            @delete_content_hash        = site.config['menu_generator']['delete_content_hash']
+            @hash_name_in_site_config   = site.config['menu_generator']['hash_name_in_site_config']
         end
 
         def generate(site)
@@ -53,7 +55,8 @@ module Jekyll
             setup_config(site)
 
             @main_menu = []
-            @lookup = { @menu_root => @main_menu }
+            @lookup = { }
+            @menues = []
 
             build_tree
             sort_pages
@@ -63,13 +66,37 @@ module Jekyll
             site.menu = @main_menu
         end
         
+        def getParentInLookup(parent)
+            if @lookup.has_key?(parent)
+                return @lookup[parent]
+            end
+
+            if not parent.nil? and parent.start_with?(@menu_root)
+                if @multi_menu
+                    str_start = @menu_root.length
+                    str_end = parent.length
+                    menu_name = parent[str_start..str_end]
+                    @menues << menu_name
+                    @lookup[parent] = []
+                    return @lookup[parent] 
+                else
+                    if parent == @menu_root
+                        @lookup[parent] = @main_menu
+                        return @lookup[@menu_root]
+                    end
+                end
+            end
+            
+            return nil
+        end
+
         def build_tree
             # build the subpage tree
             loop do 
                 prev_size = @pages.size
                 
                 @pages.reject! do |page|
-                    parent = @lookup[page.menu_parent]
+                    parent = getParentInLookup(page.menu_parent)
                     unless parent.nil?
                         # Initilize the name
                         page.menu_name
