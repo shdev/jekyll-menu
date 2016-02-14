@@ -54,18 +54,36 @@ module Jekyll
 
             setup_config(site)
 
-            @main_menu = []
-            @lookup = { }
+            @lookup = {}
             @menues = []
 
             build_tree
             sort_pages
             generate_suburls
-
-            site.config[@hash_name_in_site_config] = @main_menu
-            site.menu = @main_menu
+            publish_menues(site)
+            
         end
         
+        def publish_menues(site)
+            if 0 == @menues.length
+                site.config[@hash_name_in_site_config] = []
+                site.menu = []
+            else
+                if @multi_menu
+                    menu = {}
+                    @menues.each do |menu_name|
+                        menu[menu_name] = @lookup[@menu_root + menu_name]
+                    end
+
+                    site.config[@hash_name_in_site_config] = menu
+                    site.menu = menu
+                else
+                    site.config[@hash_name_in_site_config] = @lookup[@menu_root]
+                    site.menu = @lookup[@menu_root]
+                end
+            end
+        end
+
         def getParentInLookup(parent)
             if @lookup.has_key?(parent)
                 return @lookup[parent]
@@ -81,12 +99,13 @@ module Jekyll
                     return @lookup[parent] 
                 else
                     if parent == @menu_root
-                        @lookup[parent] = @main_menu
+                        @lookup[parent] = []
+                        @menues << ''
                         return @lookup[@menu_root]
                     end
                 end
             end
-            
+
             return nil
         end
 
@@ -147,9 +166,12 @@ module Jekyll
             # generate the suburl lists.
             # #set_suburls recurses, so we only call this
             # on the pages in the main menu
-            @main_menu.each do |page|
-                set_suburls(page)
+            @menues.each do |menu_name|
+                @lookup[@menu_root + menu_name].each do |page|
+                    set_suburls(page)
+                end
             end
+            
         end
         
         def set_suburls(page)
