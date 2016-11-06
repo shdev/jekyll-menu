@@ -122,6 +122,8 @@ module Jekyll
                         @lookup[page[@parent_match_hash]] = page.subpages
                         liq_hash = page.to_liquid
 
+                        liq_hash['page'] = page
+                    
                         if @delete_content_hash
                             liq_hash.delete('content')
                         end
