@@ -1,3 +1,5 @@
+require 'pp'
+
 module Jekyll
     class Site
       attr_accessor :menu
@@ -41,6 +43,9 @@ module Jekyll
             site.config['menu_generator']['css']['current_parent'] ||= 'current-parent'
             site.config['menu_generator']['css']['li'] ||= ''
             site.config['menu_generator']['css']['ul'] ||= ''
+
+            site.config['menu_generator']['breadcrumb'] ||= {}
+            site.config['menu_generator']['breadcrumb']['tag'] ||= 'li'
 
             @parent_match_hash          = site.config['menu_generator']['parent_match_hash']
             @menu_root                  = site.config['menu_generator']['menu_root']
@@ -178,6 +183,7 @@ module Jekyll
         
         def set_suburls(page)
             page['menu']['subpages'].each do |subpage|
+                subpage['page'].data['menu']['parent_page'] = page
                 set_suburls(subpage)
             end
             page['menu']['suburls'] = suburls(page)
@@ -195,6 +201,39 @@ module Jekyll
             end
         end
     end 
+
+
+  class BreadcrumbTag < Liquid::Tag
+
+    def render(context)
+      site = context.registers[:site]
+      page = context.registers[:page]
+
+      breadcrumb_tag = site.config['menu_generator']['breadcrumb']['tag']
+      
+      crumbs = gather(page)
+      output = ''
+
+      crumbs.each do |crumb_page|
+        output += '<' + breadcrumb_tag + '>'
+        output += '<a href="' + crumb_page['url'] + '">'
+        output += crumb_page['menu']['name']
+        output += '</a>'
+        output += '</' + breadcrumb_tag + '>'
+      end
+      
+      output
+    end
+
+    def gather(page, gathering=[])
+        if page['menu'] and page['menu']['parent_page']
+            gather(page['menu']['parent_page'], gathering)
+            gathering << page['menu']['parent_page']
+        end
+        gathering
+    end
+
+  end
 
   class MenuGeneratorTag < Liquid::Tag
 
@@ -263,3 +302,4 @@ module Jekyll
 end
 
 Liquid::Template.register_tag('menu', Jekyll::MenuGeneratorTag)
+Liquid::Template.register_tag('breadcrumbs', Jekyll::BreadcrumbTag)
